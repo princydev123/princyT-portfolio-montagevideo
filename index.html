@@ -407,6 +407,24 @@
         max-height: 80vh;
         background: #000;
       }
+
+      .fallback {
+        padding: 12px 16px;
+        font-size: 0.9rem;
+        color: var(--muted);
+      }
+
+      .fallback a {
+        display: inline-block;
+        margin-left: 5px;
+        color: var(--accent);
+        font-weight: 600;
+        text-decoration: underline;
+      }
+
+      .fallback[hidden] {
+        display: none;
+      }
       dialog .dt {
         padding: 12px 16px;
         display: flex;
@@ -764,8 +782,17 @@
 
     <dialog id="dlg" aria-label="Lecteur vidéo">
       <video id="pv" controls playsinline preload="metadata"></video>
+
+      <div class="fallback" id="fallback" hidden>
+        <span>La vidéo ne se charge pas ?</span>
+        <a id="externalLink" href="#" target="_blank" rel="noopener noreferrer">
+          Regarder sur OneDrive
+        </a>
+      </div>
+
       <div class="dt">
-        <strong id="pt"></strong><button id="px" type="button">Fermer</button>
+        <strong id="pt"></strong>
+        <button id="px" type="button">Fermer</button>
       </div>
     </dialog>
 
@@ -914,14 +941,38 @@
       function openCard(el) {
         var p = PROJECTS[+el.dataset.i];
         if (!p) return;
-        if (p.url) {
-          window.open(p.url, "_blank", "noopener");
-        } else if (p.video) {
-          $("pt").textContent = p.brand;
-          $("pv").poster = p.poster || "";
+
+        var video = $("pv");
+
+        $("pt").textContent = p.brand;
+
+        video.pause();
+        video.removeAttribute("src");
+        video.poster = p.poster || "";
+        video.load();
+
+        if (p.video) {
+          video.hidden = false;
           warm(p.video);
-          $("dlg").showModal();
-          var pr = $("pv").play();
+        } else {
+          video.hidden = true;
+        }
+
+        var fallback = $("fallback");
+        var link = $("externalLink");
+
+        if (p.url) {
+          link.href = p.url;
+          fallback.hidden = false;
+        } else {
+          fallback.hidden = true;
+          link.removeAttribute("href");
+        }
+
+        $("dlg").showModal();
+
+        if (p.video) {
+          var pr = video.play();
           if (pr && pr.catch) pr.catch(function () {});
         }
       }
