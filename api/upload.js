@@ -12,7 +12,8 @@ export default async function handler(req, res) {
       onBeforeGenerateToken: async () => {
         if (!isAuthed(req)) throw new Error("Non autorisé");
         return {
-          allowedContentTypes: ["video/mp4", "video/webm", "video/quicktime"],
+          allowedContentTypes: ["video/mp4", "video/webm", "video/quicktime", "image/jpeg"],
+          cacheControlMaxAge: 31536000, // fichiers à URL unique : cache navigateur/CDN 1 an,
           maximumSizeInBytes: 200 * 1024 * 1024,
           addRandomSuffix: true
         };

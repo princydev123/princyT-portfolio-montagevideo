@@ -34,3 +34,9 @@ Projet > Settings > Domains : ajoute ton domaine et suis les instructions.
 ## Limites à connaître
 - Vercel Blob gratuit : environ 1 Go de stockage. Garde des vidéos courtes (mp4 H.264, 1080×1920 max).
 - Resend sans domaine vérifié envoie seulement à l’adresse du compte (c’est suffisant ici).
+
+## Vidéos : réglages d’export pour une lecture instantanée
+- mp4 H.264 + audio AAC 128 kb/s, 1080×1920, 30 i/s, débit 5 à 8 Mb/s (15–25 s ≈ 10–15 Mo).
+- Activer « Fast start / Optimiser pour le web » à l’export (l’admin vous prévient sinon).
+- À l’envoi, l’admin crée une vignette : le site affiche une image légère et ne charge la vidéo qu’au clic.
+- Projets existants : rouvrez « Modifier », renvoyez la vidéo pour générer sa vignette.
