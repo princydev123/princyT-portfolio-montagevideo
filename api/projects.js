@@ -9,18 +9,14 @@ const httpUrl = (v) => { const u = s(v, 600); return /^https?:\/\//i.test(u) ? u
 const clean = (p) => ({
   id: s(p.id, 40) || Math.random().toString(36).slice(2, 10),
   brand: s(p.brand, 80), tag: s(p.tag, 40), hook: s(p.hook, 80),
-  desc: s(p.desc, 200), dur: s(p.dur, 10), url: httpUrl(p.url), video: httpUrl(p.video), poster: httpUrl(p.poster)
+  desc: s(p.desc, 200), dur: s(p.dur, 10), url: httpUrl(p.url), video: httpUrl(p.video)
 });
 
-let blobUrl = "";
 async function readAll() {
-  if (!blobUrl) { // une seule requête list() par instance (l’URL ne change jamais)
-    const { blobs } = await list({ prefix: KEY, limit: 5 });
-    const b = blobs.find((x) => x.pathname === KEY);
-    if (!b) return [];
-    blobUrl = b.url;
-  }
-  const r = await fetch(blobUrl + "?t=" + Date.now(), { cache: "no-store" });
+  const { blobs } = await list({ prefix: KEY, limit: 5 });
+  const b = blobs.find((x) => x.pathname === KEY);
+  if (!b) return [];
+  const r = await fetch(b.url + "?t=" + Date.now(), { cache: "no-store" });
   if (!r.ok) return [];
   try { const d = await r.json(); return Array.isArray(d) ? d : []; } catch { return []; }
 }
@@ -28,7 +24,7 @@ async function readAll() {
 export default async function handler(req, res) {
   try {
     if (req.method === "GET") {
-      res.setHeader("Cache-Control", "public, max-age=10, s-maxage=30, stale-while-revalidate=86400");
+      res.setHeader("Cache-Control", "public, s-maxage=20, stale-while-revalidate=60");
       return res.status(200).json(await readAll());
     }
     res.setHeader("Cache-Control", "no-store");
@@ -43,8 +39,8 @@ export default async function handler(req, res) {
         contentType: "application/json", cacheControlMaxAge: 60
       });
       // supprime du stockage les vidéos qui ne sont plus utilisées
-      const keep = new Set(next.flatMap((p) => [p.video, p.poster]).filter(Boolean));
-      const gone = old.flatMap((p) => [p.video, p.poster]).filter((v) => v && !keep.has(v) && v.includes(".blob.vercel-storage.com"));
+      const keep = new Set(next.map((p) => p.video).filter(Boolean));
+      const gone = old.map((p) => p.video).filter((v) => v && !keep.has(v) && v.includes(".blob.vercel-storage.com"));
       if (gone.length) await del(gone);
       return res.status(200).json(next);
     }
