@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Administration – Portfolio</title>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600&family=Hanken+Grotesk:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{color-scheme:dark;--bg:#121316;--panel:#1a1c20;--ink:#ecebe7;--muted:#9a9ca3;--line:#2a2d33;--accent:#c9a86a;--on:#14110a}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:400 1rem/1.5 "Hanken Grotesk",system-ui,sans-serif}
+.wrap{max-width:1000px;margin:0 auto;padding:22px}
+h1,h2{font-family:"Sora",system-ui,sans-serif;font-weight:600;margin:0 0 14px}
+h1{font-size:1.6rem}h2{font-size:1.15rem}
+.top{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:20px}
+.cols{display:grid;grid-template-columns:380px 1fr;gap:24px;align-items:start}
+@media (max-width:820px){.cols{grid-template-columns:1fr}}
+.box{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:20px;display:grid;gap:14px}
+label{display:grid;gap:6px;font-size:.9rem;color:var(--muted)}
+input{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px 12px;width:100%}
+input:focus{border-color:var(--accent);outline:none}
+input[type=file]{padding:8px}
+.b{display:inline-block;font:600 .95rem inherit;font-family:inherit;color:var(--ink);background:transparent;border:1px solid var(--line);border-radius:8px;padding:9px 16px;cursor:pointer;text-decoration:none}
+.b:hover{border-color:var(--accent)}
+.b.main{background:var(--accent);border-color:var(--accent);color:var(--on)}
+.b:disabled{opacity:.5;cursor:not-allowed}
+.row{display:flex;gap:10px;flex-wrap:wrap}
+.msg{margin:0;min-height:1.3em;font-size:.92rem;color:var(--muted)}
+.lnk{background:none;border:0;color:var(--accent);cursor:pointer;font:inherit;padding:0;text-decoration:underline}
+.it{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:14px 0;border-bottom:1px solid var(--line)}
+.it strong{display:block}.it span{color:var(--muted);font-size:.9rem}
+.ac{display:flex;gap:6px;flex-shrink:0}
+.ac .b{padding:6px 10px;font-size:.88rem}
+#login{max-width:380px;margin:12vh auto 0}
+</style>
+</head>
+<body>
+<main class="wrap">
+
+<section id="login" hidden>
+  <h1>Administration</h1>
+  <form id="lf" class="box">
+    <label>Mot de passe<input id="pw" type="password" autocomplete="current-password" required></label>
+    <button class="b main" type="submit">Se connecter</button>
+    <p id="le" class="msg" role="status"></p>
+  </form>
+</section>
+
+<section id="app" hidden>
+  <div class="top">
+    <h1>Mes projets</h1>
+    <div class="row"><a class="b" href="/" target="_blank" rel="noopener">Voir le site</a><button class="b" id="out" type="button">Déconnexion</button></div>
+  </div>
+  <div class="cols">
+    <form id="f" class="box">
+      <h2 id="ft">Ajouter un projet</h2>
+      <label>Titre ou marque<input id="brand" required maxlength="80"></label>
+      <label>Catégorie<input id="tag" list="tags" maxlength="40" placeholder="Publicité, UGC, Reels…"></label>
+      <datalist id="tags"></datalist>
+      <label>Phrase d’accroche (affichée s’il n’y a pas de vidéo)<input id="hook" maxlength="80"></label>
+      <label>Description courte<input id="desc" maxlength="200"></label>
+      <label>Durée<input id="dur" maxlength="10" placeholder="0:30"></label>
+      <label>Vidéo à héberger sur le site (mp4, webm, mov)<input id="vf" type="file" accept="video/mp4,video/webm,video/quicktime"></label>
+      <p id="vs" class="msg"></p>
+      <label>Ou lien externe (YouTube, Drive…)<input id="url" type="url" maxlength="500" placeholder="https://"></label>
+      <div class="row"><button class="b main" id="sv" type="submit">Enregistrer</button><button class="b" id="cn" type="button" hidden>Annuler</button></div>
+      <p id="msg" class="msg" role="status"></p>
+    </form>
+    <div><h2>Liste</h2><div id="list"></div></div>
+  </div>
+</section>
+
+</main>
+<script type="module">
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+let items = [], editId = null, curVideo = "", busy = false;
+
+async function api(method, url, body) {
+  const r = await fetch(url, { method, headers: body ? { "Content-Type": "application/json" } : {}, body: body ? JSON.stringify(body) : undefined });
+  if (!r.ok) throw Object.assign(new Error("http"), { status: r.status });
+  return r.json();
+}
+const show = (authed) => { $("login").hidden = authed; $("app").hidden = !authed; };
+const setMsg = (t) => { $("msg").textContent = t; };
+
+// Connexion
+async function init() {
+  try { await api("GET", "/api/login"); show(true); await load(); } catch { show(false); }
+}
+async function load() {
+  try { items = await api("GET", "/api/projects?t=" + Date.now()); } catch { items = []; setMsg("Impossible de charger les projets (Blob configuré ?)."); }
+  draw();
+}
+$("lf").onsubmit = async (e) => {
+  e.preventDefault(); $("le").textContent = "";
+  try { await api("POST", "/api/login", { password: $("pw").value }); $("pw").value = ""; show(true); await load(); }
+  catch { $("le").textContent = "Mot de passe incorrect."; }
+};
+$("out").onclick = async () => { try { await api("DELETE", "/api/login"); } catch {} show(false); };
+
+// Enregistrement (envoie toute la liste au serveur)
+async function save(next, ok) {
+  setMsg("Enregistrement…");
+  try { items = await api("PUT", "/api/projects", next); draw(); setMsg(ok); return true; }
+  catch (e) {
+    if (e.status === 401) { show(false); } else { setMsg("Erreur d’enregistrement."); }
+    return false;
+  }
+}
+
+// Liste
+function draw() {
+  $("list").innerHTML = items.length ? items.map((p, i) => `
+    <div class="it">
+      <div><strong>${esc(p.brand)}</strong><span>${esc(p.tag || "Sans catégorie")}${p.dur ? " – " + esc(p.dur) : ""} – ${p.video ? "vidéo hébergée" : p.url ? "lien externe" : "sans vidéo"}</span></div>
+      <div class="ac">
+        <button class="b" data-a="up" data-i="${i}" ${i ? "" : "disabled"} aria-label="Monter">↑</button>
+        <button class="b" data-a="down" data-i="${i}" ${i < items.length - 1 ? "" : "disabled"} aria-label="Descendre">↓</button>
+        <button class="b" data-a="edit" data-i="${i}">Modifier</button>
+        <button class="b" data-a="del" data-i="${i}">Supprimer</button>
+      </div>
+    </div>`).join("") : '<p class="msg">Aucun projet pour l’instant. Ajoutez le premier avec le formulaire.</p>';
+  $("tags").innerHTML = [...new Set(items.map((p) => p.tag).filter(Boolean))].map((t) => `<option value="${esc(t)}">`).join("");
+}
+$("list").onclick = async (e) => {
+  const b = e.target.closest("button[data-a]"); if (!b) return;
+  const i = +b.dataset.i, p = items[i], a = b.dataset.a;
+  if (a === "edit") {
+    editId = p.id; curVideo = p.video || "";
+    $("brand").value = p.brand; $("tag").value = p.tag; $("hook").value = p.hook; $("desc").value = p.desc; $("dur").value = p.dur; $("url").value = p.url;
+    $("ft").textContent = "Modifier le projet"; $("cn").hidden = false; drawVideo(); window.scrollTo({ top: 0, behavior: "smooth" });
+  } else if (a === "del") {
+    if (confirm("Supprimer « " + p.brand + " » ? La vidéo hébergée sera aussi supprimée.")) { await save(items.filter((x) => x.id !== p.id), "Projet supprimé."); if (editId === p.id) reset(); }
+  } else {
+    const j = a === "up" ? i - 1 : i + 1, next = items.slice();
+    [next[i], next[j]] = [next[j], next[i]];
+    await save(next, "Ordre modifié.");
+  }
+};
+
+// Formulaire
+function drawVideo(extra) {
+  $("vs").innerHTML = (extra ? esc(extra) + " " : "") + (curVideo ? '<span>Vidéo hébergée.</span> <button type="button" class="lnk" id="rv">Retirer</button>' : "");
+  const r = $("rv"); if (r) r.onclick = () => { curVideo = ""; drawVideo(); };
+}
+function reset() {
+  editId = null; curVideo = ""; $("f").reset(); $("ft").textContent = "Ajouter un projet"; $("cn").hidden = true; drawVideo();
+}
+$("cn").onclick = () => { reset(); setMsg(""); };
+$("f").onsubmit = async (e) => {
+  e.preventDefault(); if (busy) return;
+  const p = { id: editId || "", brand: $("brand").value, tag: $("tag").value, hook: $("hook").value, desc: $("desc").value, dur: $("dur").value, url: $("url").value, video: curVideo };
+  const next = editId ? items.map((x) => (x.id === editId ? { ...x, ...p } : x)) : [p, ...items];
+  if (await save(next, editId ? "Projet modifié." : "Projet ajouté.")) reset();
+};
+
+// Envoi de la vidéo vers Vercel Blob
+const duration = (f) => new Promise((res) => {
+  const v = document.createElement("video"); v.preload = "metadata";
+  v.onloadedmetadata = () => { const s = Math.round(v.duration); URL.revokeObjectURL(v.src); res(isFinite(s) ? Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0") : ""); };
+  v.onerror = () => res(""); v.src = URL.createObjectURL(f);
+});
+$("vf").onchange = async () => {
+  const f = $("vf").files[0]; if (!f) return;
+  busy = true; $("sv").disabled = true; drawVideo("Préparation de l’envoi…");
+  try {
+    const { upload } = await import("https://esm.sh/@vercel/blob@^1/client");
+    const blob = await upload("videos/" + f.name.replace(/[^\w.\-]+/g, "_"), f, {
+      access: "public", handleUploadUrl: "/api/upload",
+      onUploadProgress: ({ percentage }) => drawVideo("Envoi : " + Math.round(percentage) + " %")
+    });
+    curVideo = blob.url; drawVideo("Envoi terminé.");
+    const d = await duration(f); if (d && !$("dur").value) $("dur").value = d;
+  } catch (err) { drawVideo("Échec de l’envoi : " + (err.message || "erreur")); }
+  busy = false; $("sv").disabled = false; $("vf").value = "";
+};
+
+init();
+</script>
+</body>
+</html>
