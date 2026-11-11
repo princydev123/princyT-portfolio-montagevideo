@@ -804,7 +804,7 @@
     </div>
 
     <dialog id="dlg" aria-label="Lecteur vidéo">
-      <video id="pv" controls playsinline preload="metadata"></video>
+      <video id="pv" controls playsinline preload="none"></video>
 
       <div class="dt">
         <strong id="pt"></strong>
@@ -828,21 +828,7 @@
         });
       }
       var PROJECTS = [],
-        active = "Tous",
-        io =
-          "IntersectionObserver" in window
-            ? new IntersectionObserver(
-                function (es) {
-                  es.forEach(function (e) {
-                    if (!e.isIntersecting) return;
-                    io.unobserve(e.target);
-                    e.target.preload = "metadata";
-                    e.target.src = e.target.dataset.src;
-                  });
-                },
-                { rootMargin: "100px" },
-              )
-            : null;
+        active = "Tous";
 
       function render() {
         var html = "";
@@ -854,9 +840,9 @@
               esc(p.poster) +
               '" alt="" loading="lazy" decoding="async">'
             : p.video
-              ? '<video class="vid" data-src="' +
+              ? '<video class="vid" src="' +
                 esc(p.video) +
-                '#t=0.1" muted playsinline preload="none"></video>'
+                '#t=0.1" muted playsinline preload="metadata"></video>'
               : '<span class="cap">' + esc(p.hook || p.brand) + "</span>";
           html +=
             '<article class="card"' +
@@ -885,16 +871,6 @@
         });
         $("grid").innerHTML =
           html || '<p class="empty">Les réalisations arrivent bientôt.</p>';
-        Array.prototype.forEach.call(
-          $("grid").querySelectorAll("video[data-src]"),
-          function (v) {
-            if (io) io.observe(v);
-            else {
-              v.preload = "metadata";
-              v.src = v.dataset.src;
-            }
-          },
-        );
       }
       function chips() {
         var tags = ["Tous"];
@@ -926,41 +902,77 @@
         render();
       };
 
-      function warm(u) {
-        var v = $("pv");
-        if (v.getAttribute("src") !== u) {
-          v.src = u;
-          v.load();
-        }
-      }
+      // Préparation de la connexion vers Vercel Blob
+      var connectedOrigins = {};
+
       function preconnect(u) {
         try {
+          var origin = new URL(u).origin;
+
+          if (connectedOrigins[origin]) return;
+          connectedOrigins[origin] = true;
+
           var l = document.createElement("link");
           l.rel = "preconnect";
-          l.href = new URL(u).origin;
+          l.href = origin;
+          l.crossOrigin = "anonymous";
+
           document.head.appendChild(l);
         } catch (e) {}
       }
+
+      // Chargement intelligent de la vidéo
+      function warm(u, eager) {
+        var v = $("pv");
+
+        if (!u) return;
+
+        // Ne recharge pas une vidéo déjà préparée
+        if (v.dataset.source !== u) {
+          v.pause();
+          v.dataset.source = u;
+          v.preload = eager ? "auto" : "metadata";
+          v.src = u;
+          v.load();
+        } else if (eager && v.preload !== "auto") {
+          // Accélère le chargement après le clic
+          v.preload = "auto";
+        }
+      }
+
       function showProjects(d) {
         PROJECTS = d;
         chips();
         render();
+
+        // Prépare la connexion au serveur vidéo
         var f = d.find(function (p) {
-          return p.poster || p.video;
+          return p.video;
         });
-        if (f) preconnect(f.poster || f.video);
+
+        if (f) preconnect(f.video);
       }
+
+      // Préchargement léger au survol (ordinateur)
       var wt;
+
       $("grid").addEventListener("pointerover", function (e) {
         if (e.pointerType !== "mouse") return;
-        var c = e.target.closest(".card[data-i]"),
-          p = c && PROJECTS[+c.dataset.i];
+
+        var c = e.target.closest(".card[data-i]");
+        var p = c && PROJECTS[+c.dataset.i];
+
         clearTimeout(wt);
-        if (p && p.video)
+
+        if (p && p.video) {
           wt = setTimeout(function () {
-            warm(p.video);
-          }, 150);
+            preconnect(p.video);
+            warm(p.video, false);
+          }, 250);
+        }
       });
+
+      // Ouverture du lecteur
       function openCard(el) {
         var p = PROJECTS[+el.dataset.i];
         if (!p) return;
@@ -968,24 +980,20 @@
         var video = $("pv");
 
         $("pt").textContent = p.brand;
-
-        video.pause();
-        video.removeAttribute("src");
         video.poster = p.poster || "";
-        video.load();
-
-        if (p.video) {
-          video.hidden = false;
-          warm(p.video);
-        } else {
-          video.hidden = true;
-        }
 
         $("dlg").showModal();
 
         if (p.video) {
+          video.hidden = false;
+
+          preconnect(p.video);
+          warm(p.video, true);
+
           var pr = video.play();
           if (pr && pr.catch) pr.catch(function () {});
+        } else {
+          video.hidden = true;
         }
       }
       $("grid").addEventListener("click", function (e) {
@@ -1011,7 +1019,10 @@
         if (e.target === $("dlg")) closeDlg();
       });
       $("dlg").addEventListener("close", function () {
-        $("pv").pause();
+        var video = $("pv");
+
+        video.pause();
+        video.preload = "metadata";
       });
 
       try {
