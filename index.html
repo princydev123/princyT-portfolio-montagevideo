@@ -22,7 +22,9 @@
     </script>
     <link
       href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600&family=Hanken+Grotesk:wght@400;500;600&display=swap"
-      rel="stylesheet" media="print" onload="this.media='all'"
+      rel="stylesheet"
+      media="print"
+      onload="this.media = 'all'"
     />
     <style>
       /* Mode jour (clair) */
@@ -642,7 +644,11 @@
           <span class="status">Disponible pour de nouveaux projets</span>
           <h1>Monteur Vidéo & Créateur de Contenus</h1>
           <p class="lead">
-            Spécialisé dans le montage vidéo pour les réseaux sociaux, les publicités et les contenus digitaux. Je transforme vos séquences brutes en vidéos dynamiques, esthétiques et engageantes, pensées pour capter l'attention, transmettre votre message et marquer les esprits.
+            Spécialisé dans le montage vidéo pour les réseaux sociaux, les
+            publicités et les contenus digitaux. Je transforme vos séquences
+            brutes en vidéos dynamiques, esthétiques et engageantes, pensées
+            pour capter l'attention, transmettre votre message et marquer les
+            esprits.
           </p>
           <div class="btns">
             <a class="btn main" href="#portfolio">Voir les réalisations</a>
@@ -757,7 +763,7 @@
     </div>
 
     <dialog id="dlg" aria-label="Lecteur vidéo">
-      <video id="pv" controls playsinline preload="auto"></video>
+      <video id="pv" controls playsinline preload="metadata"></video>
       <div class="dt">
         <strong id="pt"></strong><button id="px" type="button">Fermer</button>
       </div>
@@ -780,16 +786,20 @@
       }
       var PROJECTS = [],
         active = "Tous",
-        io = "IntersectionObserver" in window
-          ? new IntersectionObserver(function (es) {
-              es.forEach(function (e) {
-                if (!e.isIntersecting) return;
-                io.unobserve(e.target);
-                e.target.preload = "metadata";
-                e.target.src = e.target.dataset.src;
-              });
-            }, { rootMargin: "400px" })
-          : null;
+        io =
+          "IntersectionObserver" in window
+            ? new IntersectionObserver(
+                function (es) {
+                  es.forEach(function (e) {
+                    if (!e.isIntersecting) return;
+                    io.unobserve(e.target);
+                    e.target.preload = "metadata";
+                    e.target.src = e.target.dataset.src;
+                  });
+                },
+                { rootMargin: "100px" },
+              )
+            : null;
 
       function render() {
         var html = "";
@@ -797,10 +807,14 @@
           if (active !== "Tous" && p.tag !== active) return;
           var go = p.video || p.url;
           var media = p.poster
-            ? '<img class="vid" src="' + esc(p.poster) + '" alt="" loading="lazy" decoding="async">'
+            ? '<img class="vid" src="' +
+              esc(p.poster) +
+              '" alt="" loading="lazy" decoding="async">'
             : p.video
-            ? '<video class="vid" data-src="' + esc(p.video) + '#t=0.1" muted playsinline preload="none"></video>'
-            : '<span class="cap">' + esc(p.hook || p.brand) + "</span>";
+              ? '<video class="vid" data-src="' +
+                esc(p.video) +
+                '#t=0.1" muted playsinline preload="none"></video>'
+              : '<span class="cap">' + esc(p.hook || p.brand) + "</span>";
           html +=
             '<article class="card"' +
             (go ? ' role="button" tabindex="0" data-i="' + i + '"' : "") +
@@ -821,10 +835,16 @@
         });
         $("grid").innerHTML =
           html || '<p class="empty">Les réalisations arrivent bientôt.</p>';
-        Array.prototype.forEach.call($("grid").querySelectorAll("video[data-src]"), function (v) {
-          if (io) io.observe(v);
-          else { v.preload = "metadata"; v.src = v.dataset.src; }
-        });
+        Array.prototype.forEach.call(
+          $("grid").querySelectorAll("video[data-src]"),
+          function (v) {
+            if (io) io.observe(v);
+            else {
+              v.preload = "metadata";
+              v.src = v.dataset.src;
+            }
+          },
+        );
       }
       function chips() {
         var tags = ["Tous"];
@@ -858,33 +878,46 @@
 
       function warm(u) {
         var v = $("pv");
-        if (v.getAttribute("src") !== u) { v.src = u; v.load(); }
+        if (v.getAttribute("src") !== u) {
+          v.src = u;
+          v.load();
+        }
       }
       function preconnect(u) {
         try {
           var l = document.createElement("link");
-          l.rel = "preconnect"; l.href = new URL(u).origin;
+          l.rel = "preconnect";
+          l.href = new URL(u).origin;
           document.head.appendChild(l);
         } catch (e) {}
       }
       function showProjects(d) {
-        PROJECTS = d; chips(); render();
-        var f = d.find(function (p) { return p.poster || p.video; });
+        PROJECTS = d;
+        chips();
+        render();
+        var f = d.find(function (p) {
+          return p.poster || p.video;
+        });
         if (f) preconnect(f.poster || f.video);
       }
       var wt;
       $("grid").addEventListener("pointerover", function (e) {
         if (e.pointerType !== "mouse") return;
-        var c = e.target.closest(".card[data-i]"), p = c && PROJECTS[+c.dataset.i];
+        var c = e.target.closest(".card[data-i]"),
+          p = c && PROJECTS[+c.dataset.i];
         clearTimeout(wt);
-        if (p && p.video) wt = setTimeout(function () { warm(p.video); }, 150);
+        if (p && p.video)
+          wt = setTimeout(function () {
+            warm(p.video);
+          }, 150);
       });
       function openCard(el) {
         var p = PROJECTS[+el.dataset.i];
         if (!p) return;
         if (p.video) {
           $("pt").textContent = p.brand;
-          $("pv").poster = p.poster || ""; warm(p.video);
+          $("pv").poster = p.poster || "";
+          warm(p.video);
           $("dlg").showModal();
           var pr = $("pv").play();
           if (pr && pr.catch) pr.catch(function () {});
@@ -919,13 +952,20 @@
         if (Array.isArray(cached) && cached.length) showProjects(cached);
       } catch (e) {}
       fetch("/api/projects")
-        .then(function (r) { if (!r.ok) throw new Error("x"); return r.json(); })
+        .then(function (r) {
+          if (!r.ok) throw new Error("x");
+          return r.json();
+        })
         .then(function (d) {
           if (!Array.isArray(d)) throw new Error("x");
-          try { localStorage.setItem("proj", JSON.stringify(d)); } catch (e) {}
+          try {
+            localStorage.setItem("proj", JSON.stringify(d));
+          } catch (e) {}
           if (JSON.stringify(d) !== JSON.stringify(PROJECTS)) showProjects(d);
         })
-        .catch(function () { if (!PROJECTS.length) showProjects([]); });
+        .catch(function () {
+          if (!PROJECTS.length) showProjects([]);
+        });
 
       // Mode jour / nuit
       var SUN =
