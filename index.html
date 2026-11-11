@@ -784,10 +784,13 @@
       <video id="pv" controls playsinline preload="metadata"></video>
 
       <div class="fallback" id="fallback" hidden>
-        <span>La vidéo ne se charge pas ?</span>
-        <a id="externalLink" href="#" target="_blank" rel="noopener noreferrer">
-          Regarder sur OneDrive
-        </a>
+        <span>Lien externe :</span>
+        <a
+          id="externalLink"
+          href="#"
+          target="_blank"
+          rel="noopener noreferrer"
+        ></a>
       </div>
 
       <div class="dt">
@@ -963,6 +966,7 @@
 
         if (p.url) {
           link.href = p.url;
+          link.textContent = p.url;
           fallback.hidden = false;
         } else {
           fallback.hidden = true;
