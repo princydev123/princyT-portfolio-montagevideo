@@ -488,12 +488,25 @@
       }
 
       .card .external-link {
-        display: block;
-        margin-top: 8px;
-        font-size: 0.78rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        margin-top: 12px;
+        padding: 7px 11px;
+        border: 1px solid var(--line);
+        border-radius: 6px;
         color: var(--accent);
-        text-decoration: underline;
-        overflow-wrap: anywhere;
+        font-size: 0.82rem;
+        font-weight: 600;
+        text-decoration: none;
+        transition:
+          border-color 0.2s,
+          background 0.2s;
+      }
+
+      .card .external-link:hover {
+        border-color: var(--accent);
+        background: color-mix(in srgb, var(--accent) 8%, transparent);
       }
 
       /* Services */
@@ -863,8 +876,9 @@
             (p.url
               ? '<a class="external-link" href="' +
                 esc(p.url) +
-                '" target="_blank" rel="noopener noreferrer">Lien externe : ' +
-                esc(p.url) +
+                '" target="_blank" rel="noopener noreferrer">' +
+                "<span>Voir la vidéo originale</span>" +
+                '<span aria-hidden="true">↗</span>' +
                 "</a>"
               : "") +
             "</article>";
@@ -966,7 +980,6 @@
         } else {
           video.hidden = true;
         }
-
 
         $("dlg").showModal();
 
