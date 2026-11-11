@@ -75,7 +75,7 @@ input[type=file]{padding:8px}
 <script type="module">
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-let items = [], editId = null, curVideo = "", busy = false;
+let items = [], editId = null, curVideo = "", curPoster = "", busy = false;
 
 async function api(method, url, body) {
   const r = await fetch(url, { method, headers: body ? { "Content-Type": "application/json" } : {}, body: body ? JSON.stringify(body) : undefined });
@@ -128,7 +128,7 @@ $("list").onclick = async (e) => {
   const b = e.target.closest("button[data-a]"); if (!b) return;
   const i = +b.dataset.i, p = items[i], a = b.dataset.a;
   if (a === "edit") {
-    editId = p.id; curVideo = p.video || "";
+    editId = p.id; curVideo = p.video || ""; curPoster = p.poster || "";
     $("brand").value = p.brand; $("tag").value = p.tag; $("hook").value = p.hook; $("desc").value = p.desc; $("dur").value = p.dur; $("url").value = p.url;
     $("ft").textContent = "Modifier le projet"; $("cn").hidden = false; drawVideo(); window.scrollTo({ top: 0, behavior: "smooth" });
   } else if (a === "del") {
@@ -143,15 +143,15 @@ $("list").onclick = async (e) => {
 // Formulaire
 function drawVideo(extra) {
   $("vs").innerHTML = (extra ? esc(extra) + " " : "") + (curVideo ? '<span>Vidéo hébergée.</span> <button type="button" class="lnk" id="rv">Retirer</button>' : "");
-  const r = $("rv"); if (r) r.onclick = () => { curVideo = ""; drawVideo(); };
+  const r = $("rv"); if (r) r.onclick = () => { curVideo = ""; curPoster = ""; drawVideo(); };
 }
 function reset() {
-  editId = null; curVideo = ""; $("f").reset(); $("ft").textContent = "Ajouter un projet"; $("cn").hidden = true; drawVideo();
+  editId = null; curVideo = ""; curPoster = ""; $("f").reset(); $("ft").textContent = "Ajouter un projet"; $("cn").hidden = true; drawVideo();
 }
 $("cn").onclick = () => { reset(); setMsg(""); };
 $("f").onsubmit = async (e) => {
   e.preventDefault(); if (busy) return;
-  const p = { id: editId || "", brand: $("brand").value, tag: $("tag").value, hook: $("hook").value, desc: $("desc").value, dur: $("dur").value, url: $("url").value, video: curVideo };
+  const p = { id: editId || "", brand: $("brand").value, tag: $("tag").value, hook: $("hook").value, desc: $("desc").value, dur: $("dur").value, url: $("url").value, video: curVideo, poster: curPoster };
   const next = editId ? items.map((x) => (x.id === editId ? { ...x, ...p } : x)) : [p, ...items];
   if (await save(next, editId ? "Projet modifié." : "Projet ajouté.")) reset();
 };
@@ -162,6 +162,41 @@ const duration = (f) => new Promise((res) => {
   v.onloadedmetadata = () => { const s = Math.round(v.duration); URL.revokeObjectURL(v.src); res(isFinite(s) ? Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0") : ""); };
   v.onerror = () => res(""); v.src = URL.createObjectURL(f);
 });
+// Vignette JPEG (≈15 Ko) : la grille du site affiche une image au lieu de charger N vidéos
+const poster = (f) => new Promise((res) => {
+  const v = document.createElement("video"), u = URL.createObjectURL(f);
+  v.muted = true; v.playsInline = true; v.preload = "auto";
+  const done = (b) => { URL.revokeObjectURL(u); res(b); };
+  setTimeout(() => done(null), 8000);
+  v.onerror = () => done(null);
+  v.onloadedmetadata = () => { v.currentTime = Math.min(0.5, (v.duration || 1) / 2); };
+  v.onseeked = () => {
+    const w = Math.min(480, v.videoWidth), c = document.createElement("canvas");
+    c.width = w; c.height = Math.round(w * v.videoHeight / v.videoWidth);
+    c.getContext("2d").drawImage(v, 0, 0, c.width, c.height);
+    c.toBlob(done, "image/jpeg", 0.8);
+  };
+  v.src = u;
+});
+// Alerte si la vidéo ne démarrera pas instantanément (poids, ou index « moov » placé en fin de fichier)
+async function webCheck(f) {
+  let w = f.size > 25e6 ? " ⚠ Fichier lourd (" + Math.round(f.size / 1e6) + " Mo) : visez moins de 15 Mo." : "";
+  try {
+    let o = 0;
+    for (let n = 0; n < 12 && o < f.size; n++) {
+      const d = new DataView(await f.slice(o, o + 16).arrayBuffer());
+      let sz = d.getUint32(0);
+      const t = String.fromCharCode(d.getUint8(4), d.getUint8(5), d.getUint8(6), d.getUint8(7));
+      if (n === 0 && t !== "ftyp") break;
+      if (t === "moov") break;
+      if (t === "mdat") { w += " ⚠ Pas optimisée pour le web : réexportez avec « Fast start / Optimiser pour le web »."; break; }
+      if (sz === 1) sz = Number(d.getBigUint64(8));
+      if (!sz) break;
+      o += sz;
+    }
+  } catch {}
+  return w;
+}
 $("vf").onchange = async () => {
   const f = $("vf").files[0]; if (!f) return;
   busy = true; $("sv").disabled = true; drawVideo("Préparation de l’envoi…");
@@ -171,7 +206,12 @@ $("vf").onchange = async () => {
       access: "public", handleUploadUrl: "/api/upload",
       onUploadProgress: ({ percentage }) => drawVideo("Envoi : " + Math.round(percentage) + " %")
     });
-    curVideo = blob.url; drawVideo("Envoi terminé.");
+    curVideo = blob.url; drawVideo("Création de la vignette…");
+    try {
+      const pb = await poster(f);
+      if (pb) curPoster = (await upload("posters/" + f.name.replace(/[^\w.\-]+/g, "_") + ".jpg", pb, { access: "public", handleUploadUrl: "/api/upload", contentType: "image/jpeg" })).url;
+    } catch {}
+    drawVideo("Envoi terminé." + (await webCheck(f)));
     const d = await duration(f); if (d && !$("dur").value) $("dur").value = d;
   } catch (err) { drawVideo("Échec de l’envoi : " + (err.message || "erreur")); }
   busy = false; $("sv").disabled = false; $("vf").value = "";
