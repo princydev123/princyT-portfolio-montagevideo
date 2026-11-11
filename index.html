@@ -487,6 +487,15 @@
         color: var(--muted);
       }
 
+      .card .external-link {
+        display: block;
+        margin-top: 8px;
+        font-size: 0.78rem;
+        color: var(--accent);
+        text-decoration: underline;
+        overflow-wrap: anywhere;
+      }
+
       /* Services */
       .svc {
         display: grid;
@@ -783,16 +792,6 @@
     <dialog id="dlg" aria-label="Lecteur vidéo">
       <video id="pv" controls playsinline preload="metadata"></video>
 
-      <div class="fallback" id="fallback" hidden>
-        <span>Lien externe :</span>
-        <a
-          id="externalLink"
-          href="#"
-          target="_blank"
-          rel="noopener noreferrer"
-        ></a>
-      </div>
-
       <div class="dt">
         <strong id="pt"></strong>
         <button id="px" type="button">Fermer</button>
@@ -861,6 +860,13 @@
             esc(p.tag) +
             "</span>" +
             (p.desc ? "<p>" + esc(p.desc) + "</p>" : "") +
+            (p.url
+              ? '<a class="external-link" href="' +
+                esc(p.url) +
+                '" target="_blank" rel="noopener noreferrer">Lien externe : ' +
+                esc(p.url) +
+                "</a>"
+              : "") +
             "</article>";
         });
         $("grid").innerHTML =
@@ -961,17 +967,6 @@
           video.hidden = true;
         }
 
-        var fallback = $("fallback");
-        var link = $("externalLink");
-
-        if (p.url) {
-          link.href = p.url;
-          link.textContent = p.url;
-          fallback.hidden = false;
-        } else {
-          fallback.hidden = true;
-          link.removeAttribute("href");
-        }
 
         $("dlg").showModal();
 
@@ -981,6 +976,8 @@
         }
       }
       $("grid").addEventListener("click", function (e) {
+        if (e.target.closest(".external-link")) return;
+
         var c = e.target.closest(".card[data-i]");
         if (c) openCard(c);
       });
