@@ -914,14 +914,16 @@
       function openCard(el) {
         var p = PROJECTS[+el.dataset.i];
         if (!p) return;
-        if (p.video) {
+        if (p.url) {
+          window.open(p.url, "_blank", "noopener");
+        } else if (p.video) {
           $("pt").textContent = p.brand;
           $("pv").poster = p.poster || "";
           warm(p.video);
           $("dlg").showModal();
           var pr = $("pv").play();
           if (pr && pr.catch) pr.catch(function () {});
-        } else if (p.url) window.open(p.url, "_blank", "noopener");
+        }
       }
       $("grid").addEventListener("click", function (e) {
         var c = e.target.closest(".card[data-i]");
