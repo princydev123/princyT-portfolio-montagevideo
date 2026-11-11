@@ -839,7 +839,11 @@
             ? '<img class="vid" src="' +
               esc(p.poster) +
               '" alt="" loading="lazy" decoding="async">'
-            : '<span class="cap">' + esc(p.hook || p.brand) + "</span>";
+            : p.video
+              ? '<video class="vid" src="' +
+                esc(p.video) +
+                '#t=0.1" muted playsinline preload="metadata"></video>'
+              : '<span class="cap">' + esc(p.hook || p.brand) + "</span>";
           html +=
             '<article class="card"' +
             (go ? ' role="button" tabindex="0" data-i="' + i + '"' : "") +
